@@ -25,6 +25,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -107,7 +108,7 @@ private fun DownloaderScreen(context: Context, viewModel: DownloadViewModel = hi
                                 viewModel.setStatus(recordId, DownloadStatus.DOWNLOADING)
                                 url = ""
                                 filename = ""
-                                message = "Download queued. Android will show transfer notifications."
+                                message = "Download queued. Progress will sync automatically."
                             } catch (_: Exception) {
                                 viewModel.setStatus(recordId, DownloadStatus.FAILED, "Android could not start the download.")
                                 message = "Could not start this download. Check the URL and try again."
@@ -126,10 +127,19 @@ private fun DownloaderScreen(context: Context, viewModel: DownloadViewModel = hi
             } else {
                 items(uiState.downloads, key = { it.id }) { item ->
                     Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(item.fileName, style = MaterialTheme.typography.titleMedium)
                             Text(item.status.name, style = MaterialTheme.typography.labelMedium)
-                            Text("${item.downloadedBytes} bytes downloaded", style = MaterialTheme.typography.bodySmall)
+                            if (item.totalBytes > 0L) {
+                                val progress = (item.downloadedBytes.toFloat() / item.totalBytes.toFloat()).coerceIn(0f, 1f)
+                                LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                                Text("${(progress * 100).toInt()}% · ${item.downloadedBytes} / ${item.totalBytes} bytes", style = MaterialTheme.typography.bodySmall)
+                            } else {
+                                if (item.status == DownloadStatus.DOWNLOADING || item.status == DownloadStatus.PAUSED) {
+                                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                                }
+                                Text("${item.downloadedBytes} bytes downloaded · total size unknown", style = MaterialTheme.typography.bodySmall)
+                            }
                             Text(item.url, style = MaterialTheme.typography.bodySmall, maxLines = 2)
                             Button(onClick = { viewModel.deleteDownload(item.id) }) { Text("Remove from history") }
                         }

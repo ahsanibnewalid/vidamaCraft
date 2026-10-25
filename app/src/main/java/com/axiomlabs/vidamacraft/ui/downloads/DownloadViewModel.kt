@@ -3,20 +3,25 @@ package com.axiomlabs.vidamacraft.ui.downloads
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.axiomlabs.vidamacraft.data.local.DownloadStatus
+import com.axiomlabs.vidamacraft.data.repository.DownloadManagerProgressTracker
 import com.axiomlabs.vidamacraft.data.repository.DownloadRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 @HiltViewModel
 class DownloadViewModel @Inject constructor(
-    private val repository: DownloadRepository
+    private val repository: DownloadRepository,
+    private val progressTracker: DownloadManagerProgressTracker
 ) : ViewModel() {
     private val submitting = MutableStateFlow(false)
     private val message = MutableStateFlow<String?>(null)
@@ -26,6 +31,26 @@ class DownloadViewModel @Inject constructor(
     ) { downloads, isSubmitting, currentMessage ->
         DownloadUiState(downloads = downloads, isSubmitting = isSubmitting, message = currentMessage)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DownloadUiState())
+
+    init {
+        // DownloadManager continues independently; this loop reconciles its state when the app is visible/alive.
+        viewModelScope.launch {
+            while (isActive) {
+                try {
+                    repository.observeDownloads().first()
+                        .filter { it.systemDownloadId >= 0L && it.status !in setOf(
+                            DownloadStatus.COMPLETED, DownloadStatus.FAILED, DownloadStatus.CANCELLED
+                        ) }
+                        .forEach { progressTracker.refresh(it) }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    // A transient query failure must not crash the screen; retry on the next cycle.
+                }
+                delay(1_000)
+            }
+        }
+    }
 
     fun queueDownload(url: String, fileName: String, onCreated: (Long) -> Unit = {}) {
         viewModelScope.launch {
