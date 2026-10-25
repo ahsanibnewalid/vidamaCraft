@@ -19,7 +19,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
 
         output = TextView(this).apply {
-            text = "Metadata-only extractor sandbox\\n\\nTap Test metadata to query an authorized test URL."
+            text = "Metadata-only extractor sandbox\n\nTap Test metadata to query an authorized test URL."
             textSize = 16f
             setPadding(32, 24, 32, 24)
         }
@@ -53,7 +53,7 @@ class MainActivity : Activity() {
                         appendLine("Duration: ${info.duration ?: "Unavailable"} seconds")
                         appendLine("Formats found: ${formats.size}")
                         formats.take(30).forEach { format ->
-                            appendLine("• ${format.formatId ?: "?"} | ${format.ext ?: "?"} | ${format.resolution ?: "unknown resolution"}")
+                            appendLine("• ${format.formatId ?: "?"} | ${format.ext ?: "?"}")
                         }
                     }
                     output.text = summary
