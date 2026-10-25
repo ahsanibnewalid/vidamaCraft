@@ -2,7 +2,6 @@ package com.axiomlabs.vidamacraft.ui.downloads
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.axiomlabs.vidamacraft.data.local.DownloadEntity
 import com.axiomlabs.vidamacraft.data.local.DownloadStatus
 import com.axiomlabs.vidamacraft.data.repository.DownloadRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -11,7 +10,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -29,19 +27,20 @@ class DownloadViewModel @Inject constructor(
         DownloadUiState(downloads = downloads, isSubmitting = isSubmitting, message = currentMessage)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DownloadUiState())
 
-    fun queueDownload(url: String, fileName: String) {
+    fun queueDownload(url: String, fileName: String, onCreated: (Long) -> Unit = {}) {
         viewModelScope.launch {
             submitting.value = true
             message.value = null
             try {
                 val id = repository.createDownload(url, fileName)
-                message.value = "Download record #$id saved. Transfer execution is the next implementation step."
+                message.value = "Download record #$id saved."
+                onCreated(id)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: IllegalArgumentException) {
                 message.value = error.message ?: "Please check the URL and filename."
             } catch (_: Exception) {
-                message.value = "Could not save the download record. Please try again."
+                message.value = "Could not save or start this download. Please try again."
             } finally {
                 submitting.value = false
             }
@@ -61,7 +60,6 @@ class DownloadViewModel @Inject constructor(
         }
     }
 
-    /** Status updates are exposed for the future download engine/service. */
     fun setStatus(id: Long, status: DownloadStatus, errorMessage: String? = null) {
         viewModelScope.launch {
             try {
