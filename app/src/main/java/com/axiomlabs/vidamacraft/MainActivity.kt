@@ -78,21 +78,9 @@ private fun DownloaderScreen(context: Context) {
                 Text("Download direct files you own or are authorized to save. Streaming-page links may not work.")
             }
             item {
-                OutlinedTextField(
-                    value = url, onValueChange = { url = it },
-                    label = { Text("Direct HTTPS URL") },
-                    placeholder = { Text("https://example.com/video.mp4") },
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                    singleLine = true
-                )
+                OutlinedTextField(value = url, onValueChange = { url = it }, label = { Text("Direct HTTPS URL") }, placeholder = { Text("https://example.com/video.mp4") }, modifier = Modifier.fillMaxWidth(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), singleLine = true)
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(
-                    value = filename, onValueChange = { filename = it },
-                    label = { Text("File name (optional)") },
-                    placeholder = { Text("my-video.mp4") },
-                    modifier = Modifier.fillMaxWidth(), singleLine = true
-                )
+                OutlinedTextField(value = filename, onValueChange = { filename = it }, label = { Text("File name (optional)") }, placeholder = { Text("my-video.mp4") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 Spacer(Modifier.height(12.dp))
                 Button(onClick = {
                     val validation = DownloadUrlValidator.validate(url)
@@ -138,29 +126,18 @@ private fun DownloaderScreen(context: Context) {
                     }
                 }
             }
-            item {
-                Text(
-                    "VidamaCraft does not bypass DRM or access controls. Only download content you are allowed to save.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            item { Text("VidamaCraft does not bypass DRM or access controls. Only download content you are allowed to save.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }
 
 private fun safeFilename(raw: String): String {
-    val cleaned = raw.substringAfterLast('/').substringAfterLast('\\\\')
-        .replace(Regex("[^A-Za-z0-9._ -]"), "_")
-        .trim().trim('.')
-        .take(120)
+    val cleaned = raw.replace(Regex("[^A-Za-z0-9._ -]"), "_").trim().trim('.').take(120)
     return cleaned.ifBlank { "download.bin" }
 }
 
 private fun nameFromUrl(raw: String): String {
     val path = Uri.parse(raw).lastPathSegment.orEmpty()
-    val decoded = try {
-        URLDecoder.decode(path, StandardCharsets.UTF_8.name())
-    } catch (_: Exception) { path }
+    val decoded = try { URLDecoder.decode(path, StandardCharsets.UTF_8.name()) } catch (_: Exception) { path }
     return safeFilename(decoded.ifBlank { "download.bin" })
 }
