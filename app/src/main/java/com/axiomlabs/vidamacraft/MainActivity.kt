@@ -33,16 +33,21 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.axiomlabs.vidamacraft.data.local.DownloadStatus
+import com.axiomlabs.vidamacraft.ui.downloads.DownloadViewModel
+import dagger.hilt.android.AndroidEntryPoint
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,15 +55,13 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private data class DownloadItem(val id: Long, val name: String, val source: String)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DownloaderScreen(context: Context) {
+private fun DownloaderScreen(context: Context, viewModel: DownloadViewModel = hiltViewModel()) {
     var url by remember { mutableStateOf("") }
     var filename by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("Paste a direct HTTPS file link to get started.") }
-    val downloads = remember { mutableStateListOf<DownloadItem>() }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(topBar = {
         TopAppBar(title = {
@@ -82,46 +85,52 @@ private fun DownloaderScreen(context: Context) {
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(value = filename, onValueChange = { filename = it }, label = { Text("File name (optional)") }, placeholder = { Text("my-video.mp4") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 Spacer(Modifier.height(12.dp))
-                Button(onClick = {
+                Button(enabled = !uiState.isSubmitting, onClick = {
                     val validation = DownloadUrlValidator.validate(url)
                     if (validation != null) {
                         message = validation
                     } else {
-                        try {
-                            val safeName = safeFilename(filename.ifBlank { nameFromUrl(url) })
-                            val request = DownloadManager.Request(Uri.parse(url.trim()))
-                                .setTitle(safeName)
-                                .setDescription("VidamaCraft download")
-                                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                                .setAllowedOverMetered(true)
-                                .setAllowedOverRoaming(false)
-                                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, safeName)
-                            val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                            val id = manager.enqueue(request)
-                            downloads.add(0, DownloadItem(id, safeName, url.trim()))
-                            url = ""
-                            filename = ""
-                            message = "Download queued. Track progress in Android notifications."
-                        } catch (_: Exception) {
-                            message = "Could not start this download. Check the URL and try again."
+                        val sourceUrl = url.trim()
+                        val safeName = safeFilename(filename.ifBlank { nameFromUrl(sourceUrl) })
+                        viewModel.queueDownload(sourceUrl, safeName) { recordId ->
+                            try {
+                                val request = DownloadManager.Request(Uri.parse(sourceUrl))
+                                    .setTitle(safeName)
+                                    .setDescription("VidamaCraft download")
+                                    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                                    .setAllowedOverMetered(true)
+                                    .setAllowedOverRoaming(false)
+                                    .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, safeName)
+                                val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                                manager.enqueue(request)
+                                viewModel.setStatus(recordId, DownloadStatus.DOWNLOADING)
+                                url = ""
+                                filename = ""
+                                message = "Download queued. Android will show transfer notifications."
+                            } catch (_: Exception) {
+                                viewModel.setStatus(recordId, DownloadStatus.FAILED, "Android could not start the download.")
+                                message = "Could not start this download. Check the URL and try again."
+                            }
                         }
                     }
                 }, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.Download, contentDescription = null)
-                    Text("  Download file")
+                    Text(if (uiState.isSubmitting) "  Saving…" else "  Download file")
                 }
-                Text(message, style = MaterialTheme.typography.bodySmall)
+                Text(uiState.message ?: message, style = MaterialTheme.typography.bodySmall)
             }
-            item { Text("Recent downloads", style = MaterialTheme.typography.titleLarge) }
-            if (downloads.isEmpty()) {
-                item { Card { Text("Your queued downloads will appear here.", Modifier.padding(16.dp)) } }
+            item { Text("Download history", style = MaterialTheme.typography.titleLarge) }
+            if (uiState.downloads.isEmpty()) {
+                item { Card { Text("Your saved downloads will appear here.", Modifier.padding(16.dp)) } }
             } else {
-                items(downloads, key = { it.id }) { item ->
+                items(uiState.downloads, key = { it.id }) { item ->
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(item.name, style = MaterialTheme.typography.titleMedium)
-                            Text("Download ID: " + item.id, style = MaterialTheme.typography.bodySmall)
-                            Text(item.source, style = MaterialTheme.typography.bodySmall, maxLines = 2)
+                            Text(item.fileName, style = MaterialTheme.typography.titleMedium)
+                            Text(item.status.name, style = MaterialTheme.typography.labelMedium)
+                            Text("${item.downloadedBytes} bytes downloaded", style = MaterialTheme.typography.bodySmall)
+                            Text(item.url, style = MaterialTheme.typography.bodySmall, maxLines = 2)
+                            Button(onClick = { viewModel.deleteDownload(item.id) }) { Text("Remove from history") }
                         }
                     }
                 }
