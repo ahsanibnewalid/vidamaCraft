@@ -130,6 +130,9 @@ private fun DownloaderScreen(context: Context, viewModel: DownloadViewModel = hi
                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(item.fileName, style = MaterialTheme.typography.titleMedium)
                             Text(item.status.name, style = MaterialTheme.typography.labelMedium)
+                            item.errorMessage?.let { error ->
+                                Text(error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                            }
                             if (item.totalBytes > 0L) {
                                 val progress = (item.downloadedBytes.toFloat() / item.totalBytes.toFloat()).coerceIn(0f, 1f)
                                 LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())

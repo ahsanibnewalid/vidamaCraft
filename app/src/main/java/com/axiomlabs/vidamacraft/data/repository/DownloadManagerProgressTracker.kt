@@ -54,9 +54,24 @@ class DownloadManagerProgressTracker @Inject constructor(
                     repository.updateStatus(download.id, DownloadStatus.PAUSED)
                 }
                 DownloadManager.STATUS_SUCCESSFUL -> {
-                    val localUri = it.getString(it.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI))
-                        ?: Uri.parse("content://downloads/my_downloads/${download.systemDownloadId}").toString()
-                    repository.markCompleted(download.id, bytes, total, localUri)
+                    val mimeType = manager.getMimeTypeForDownloadedFile(download.systemDownloadId)
+                        ?.substringBefore(';')
+                        ?.trim()
+                        ?.lowercase()
+                    if (mimeType == "text/html" || mimeType == "application/xhtml+xml") {
+                        // A web page is not a media file. Remove it instead of leaving a false success.
+                        manager.remove(download.systemDownloadId)
+                        repository.updateProgress(download.id, bytes, total)
+                        repository.updateStatus(
+                            download.id,
+                            DownloadStatus.FAILED,
+                            "This link returned a webpage, not a direct file. Use a direct HTTPS media URL."
+                        )
+                    } else {
+                        val localUri = it.getString(it.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI))
+                            ?: Uri.parse("content://downloads/my_downloads/${download.systemDownloadId}").toString()
+                        repository.markCompleted(download.id, bytes, total, localUri)
+                    }
                 }
                 DownloadManager.STATUS_FAILED -> {
                     val reason = it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
