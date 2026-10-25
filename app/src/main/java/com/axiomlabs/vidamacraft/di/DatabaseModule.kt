@@ -1,10 +1,12 @@
 package com.axiomlabs.vidamacraft.di
 
+import android.app.DownloadManager
 import android.content.Context
 import androidx.room.Room
 import com.axiomlabs.vidamacraft.data.local.DownloadDao
 import com.axiomlabs.vidamacraft.data.local.VidamaDatabase
 import com.axiomlabs.vidamacraft.data.repository.DownloadRepository
+import com.axiomlabs.vidamacraft.data.repository.DownloadManagerProgressTracker
 import com.axiomlabs.vidamacraft.data.repository.RoomDownloadRepository
 import dagger.Module
 import dagger.Provides
@@ -20,6 +22,7 @@ object DatabaseModule {
     @Singleton
     fun provideVidamaDatabase(@ApplicationContext context: Context): VidamaDatabase =
         Room.databaseBuilder(context, VidamaDatabase::class.java, "vidamacraft_downloads.db")
+            .addMigrations(VidamaDatabase.MIGRATION_1_2)
             .build()
 
     @Provides
@@ -29,4 +32,9 @@ object DatabaseModule {
     @Singleton
     fun provideDownloadRepository(database: VidamaDatabase): DownloadRepository =
         RoomDownloadRepository(database)
+
+    @Provides
+    @Singleton
+    fun provideDownloadManager(@ApplicationContext context: Context): DownloadManager =
+        context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
 }

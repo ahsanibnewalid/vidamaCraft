@@ -15,6 +15,8 @@ data class DownloadEntity(
     val fileName: String,
     val status: DownloadStatus = DownloadStatus.QUEUED,
     val createdAtEpochMillis: Long = System.currentTimeMillis(),
+    /** Android DownloadManager ID, or -1 when no OS job has been associated yet. */
+    val systemDownloadId: Long = -1L,
     val downloadedBytes: Long = 0L,
     /** -1 means the server did not provide a known content length. */
     val totalBytes: Long = -1L,
