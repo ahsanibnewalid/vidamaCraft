@@ -1,7 +1,6 @@
 package com.axiomlabs.vidamacraft.data.local
 
 import androidx.room.Dao
-import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -20,6 +19,9 @@ interface DownloadDao {
 
     @Query("UPDATE downloads SET status = :status, errorMessage = :errorMessage WHERE id = :id")
     suspend fun updateStatus(id: Long, status: DownloadStatus, errorMessage: String? = null): Int
+
+    @Query("UPDATE downloads SET systemDownloadId = :systemDownloadId WHERE id = :id")
+    suspend fun updateSystemDownloadId(id: Long, systemDownloadId: Long): Int
 
     @Query("UPDATE downloads SET downloadedBytes = :downloadedBytes, totalBytes = :totalBytes WHERE id = :id")
     suspend fun updateProgress(id: Long, downloadedBytes: Long, totalBytes: Long): Int

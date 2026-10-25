@@ -12,12 +12,13 @@ interface DownloadRepository {
     suspend fun getDownload(id: Long): DownloadEntity?
     suspend fun createDownload(url: String, fileName: String): Long
     suspend fun updateStatus(id: Long, status: DownloadStatus, errorMessage: String? = null)
+    suspend fun updateSystemDownloadId(id: Long, systemDownloadId: Long)
     suspend fun updateProgress(id: Long, downloadedBytes: Long, totalBytes: Long)
     suspend fun markCompleted(id: Long, downloadedBytes: Long, totalBytes: Long, localUri: String)
     suspend fun deleteDownload(id: Long)
 }
 
-/** Persistence only: the download engine/service will call these methods in the next step. */
+/** Persistence layer for download records and their Android DownloadManager association. */
 class RoomDownloadRepository(
     private val database: VidamaDatabase,
     private val dao: DownloadDao = database.downloadDao()
@@ -38,6 +39,13 @@ class RoomDownloadRepository(
 
     override suspend fun updateStatus(id: Long, status: DownloadStatus, errorMessage: String?) {
         dao.updateStatus(id, status, errorMessage?.take(500))
+    }
+
+    override suspend fun updateSystemDownloadId(id: Long, systemDownloadId: Long) {
+        require(systemDownloadId >= 0L) { "Android download ID must be non-negative." }
+        check(dao.updateSystemDownloadId(id, systemDownloadId) == 1) {
+            "Download record $id no longer exists."
+        }
     }
 
     override suspend fun updateProgress(id: Long, downloadedBytes: Long, totalBytes: Long) {

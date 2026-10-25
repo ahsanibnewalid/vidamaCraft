@@ -47,6 +47,18 @@ class DownloadViewModel @Inject constructor(
         }
     }
 
+    fun setSystemDownloadId(recordId: Long, systemDownloadId: Long) {
+        viewModelScope.launch {
+            try {
+                repository.updateSystemDownloadId(recordId, systemDownloadId)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                message.value = "The download started, but its tracking ID could not be saved."
+            }
+        }
+    }
+
     fun deleteDownload(id: Long) {
         viewModelScope.launch {
             try {

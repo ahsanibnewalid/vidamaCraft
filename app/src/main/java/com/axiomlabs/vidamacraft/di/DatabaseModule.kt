@@ -20,6 +20,7 @@ object DatabaseModule {
     @Singleton
     fun provideVidamaDatabase(@ApplicationContext context: Context): VidamaDatabase =
         Room.databaseBuilder(context, VidamaDatabase::class.java, "vidamacraft_downloads.db")
+            .addMigrations(VidamaDatabase.MIGRATION_1_2)
             .build()
 
     @Provides

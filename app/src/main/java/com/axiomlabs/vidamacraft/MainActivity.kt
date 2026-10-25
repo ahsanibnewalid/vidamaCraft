@@ -102,7 +102,8 @@ private fun DownloaderScreen(context: Context, viewModel: DownloadViewModel = hi
                                     .setAllowedOverRoaming(false)
                                     .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, safeName)
                                 val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                                manager.enqueue(request)
+                                val systemDownloadId = manager.enqueue(request)
+                                viewModel.setSystemDownloadId(recordId, systemDownloadId)
                                 viewModel.setStatus(recordId, DownloadStatus.DOWNLOADING)
                                 url = ""
                                 filename = ""
