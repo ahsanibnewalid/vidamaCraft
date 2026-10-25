@@ -3,6 +3,7 @@
     <application
         android:name=".SandboxApplication"
         android:allowBackup="false"
+        android:extractNativeLibs="true"
         android:label="VidamaCraft Extractor Sandbox"
         android:usesCleartextTraffic="false">
         <activity
