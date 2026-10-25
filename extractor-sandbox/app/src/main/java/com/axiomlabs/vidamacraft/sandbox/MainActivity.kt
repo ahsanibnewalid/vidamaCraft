@@ -1,11 +1,16 @@
 package com.axiomlabs.vidamacraft.sandbox
 
 import android.app.Activity
+import android.content.ClipboardManager
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +29,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -36,6 +43,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -44,6 +54,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -52,6 +64,16 @@ import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import java.util.Locale
 import java.util.concurrent.Executors
+
+private val VidamaColors = darkColorScheme(
+    primary = Color(0xFF42E8F5),
+    onPrimary = Color(0xFF080C18),
+    secondary = Color(0xFF9A75FF),
+    background = Color(0xFF080C18),
+    surface = Color(0xFF11182A),
+    surfaceVariant = Color(0xFF1A2439),
+    onSurfaceVariant = Color(0xFF9BA8BF)
+)
 
 private data class FormatOption(
     val id: String,
@@ -82,6 +104,7 @@ private enum class FormatCategory(val label: String) {
 class MainActivity : Activity() {
     private val executor = Executors.newSingleThreadExecutor()
 
+    private var inputUrl by mutableStateOf("https://vimeo.com/22439234")
     private var loading by mutableStateOf(false)
     private var title by mutableStateOf("Metadata-only extractor sandbox")
     private var thumbnailUrl by mutableStateOf<String?>(null)
@@ -93,9 +116,12 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
+            MaterialTheme(colorScheme = VidamaColors) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     SandboxScreen(
+                        inputUrl = inputUrl,
+                        onUrlChange = { inputUrl = it },
+                        onPaste = ::pasteUrlFromClipboard,
                         title = title,
                         thumbnailUrl = thumbnailUrl,
                         duration = duration,
@@ -121,10 +147,28 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun pasteUrlFromClipboard() {
+        val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+        val pasted = clipboard.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString()?.trim()
+        if (pasted.isNullOrBlank()) {
+            Toast.makeText(this, "Clipboard is empty.", Toast.LENGTH_SHORT).show()
+        } else {
+            inputUrl = pasted
+        }
+    }
+
     private fun queryMetadata() {
         if (loading) return
-        // Use only content you are authorized to access. This is a metadata-only experiment.
-        val testUrl = "https://vimeo.com/22439234"
+        // Metadata-only experiment: test only URLs you are authorized to access.
+        val testUrl = inputUrl.trim()
+        val parsed = runCatching { Uri.parse(testUrl) }.getOrNull()
+        if (parsed == null || parsed.host.isNullOrBlank() ||
+            !(parsed.scheme.equals("https", true) || parsed.scheme.equals("http", true))
+        ) {
+            status = "Enter a valid HTTP or HTTPS URL."
+            formats = emptyList()
+            return
+        }
         loading = true
         status = "Querying metadata…"
         executor.execute {
@@ -195,6 +239,9 @@ class MainActivity : Activity() {
 
 @Composable
 private fun SandboxScreen(
+    inputUrl: String,
+    onUrlChange: (String) -> Unit,
+    onPaste: () -> Unit,
     title: String,
     thumbnailUrl: String?,
     duration: String?,
@@ -208,11 +255,43 @@ private fun SandboxScreen(
     onFormatSelected: (FormatOption) -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(20.dp),
+        modifier = Modifier.fillMaxSize()
+            .background(Brush.verticalGradient(listOf(Color(0xFF080C18), Color(0xFF15152D), Color(0xFF080C18))))
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text("VidamaCraft", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Text("Extractor sandbox • metadata-only prototype", style = MaterialTheme.typography.bodyMedium)
+        Text("EXTRACTOR SANDBOX • METADATA ONLY", style = MaterialTheme.typography.labelSmall, color = Color(0xFF42E8F5))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF11182A))
+        ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.Link, contentDescription = null, tint = Color(0xFF42E8F5))
+                    Text("Media URL", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = onPaste) { Text("Paste") }
+                }
+                TextField(
+                    value = inputUrl,
+                    onValueChange = onUrlChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("https://…") },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color(0xFF080C18),
+                        unfocusedContainerColor = Color(0xFF080C18),
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        cursorColor = Color(0xFF42E8F5)
+                    )
+                )
+            }
+        }
         VideoHeaderCard(title = title, thumbnailUrl = thumbnailUrl, duration = duration)
         Text(status, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (loading) CircularProgressIndicator()
@@ -226,7 +305,7 @@ private fun SandboxScreen(
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            "Experimental sandbox only. Selecting a format does not start a download.",
+            "Experimental sandbox only. Selecting a format does not start a download. Use content you are authorized to access; DRM and access controls are not bypassed.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -239,7 +318,7 @@ private fun SandboxScreen(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("Select download quality", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text("Choose your quality", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = Color(0xFF42E8F5))
                 Text(
                     "Available streams are supplied by the extractor. Sizes and bitrates may be estimates.",
                     style = MaterialTheme.typography.bodySmall,
